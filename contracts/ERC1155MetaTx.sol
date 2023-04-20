@@ -58,10 +58,17 @@ contract ERC1155MetaTx is IERC1155MetaTx, ERC1155, ERC2771Context, EIP712 {
         return _msgSender() == recovered;
     }
 
+    /// @dev Replacement for msg.sender.
+    /// Returns the actual sender of a transaction: msg.sender for regular transactions,
+    /// and the end-user for relayed callsReplacement for msg.sender.
+    /// Returns the actual sender of a transaction: msg.sender for regular transactions, and the end-user for relayed calls.
     function _msgSender() internal view override(Context, ERC2771Context) returns (address sender) {
         return ERC2771Context._msgSender();
     }
 
+    /// @dev Replacement for msg.data.
+    /// Returns the actual calldata of a transaction: msg.data for regular transactions,
+    /// and a reduced version for relayed calls.
     function _msgData() internal view override(Context, ERC2771Context) returns (bytes calldata) {
         return ERC2771Context._msgData();
     }
