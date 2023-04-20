@@ -35,6 +35,7 @@ contract ERC1155MetaTx is ERC1155, ERC2771Context, EIP712 {
         _redeem(_account, _tokenId, _amount, _data, _signature);
     }
 
+    // ToDo: validation may be required for controlling the signature strictly
     function _redeem(
         address _account,
         uint256 _tokenId,
