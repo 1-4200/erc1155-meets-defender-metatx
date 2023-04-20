@@ -4,6 +4,7 @@ import "@nomicfoundation/hardhat-foundry";
 import { config as dotenvConfig } from "dotenv";
 import { resolve } from "path";
 import { NetworkUserConfig } from "hardhat/types";
+import { accounts } from "./test-wallet";
 
 dotenvConfig({ path: resolve(__dirname, "./.env") });
 
@@ -18,7 +19,6 @@ if (!infuraApiKey) {
 }
 
 export const chainIds = {
-  mainnet: 1,
   "polygon-mainnet": 137,
   "polygon-mumbai": 80001,
   hardhat: 31337,
@@ -43,8 +43,12 @@ const config: HardhatUserConfig = {
     src: "./contracts",
   },
   networks: {
-    hardhat: {},
-    mainnet: getChainConfig("mainnet"),
+    hardhat: {
+      accounts: accounts.map(({ secretKey, balance }: { secretKey: string; balance: string }) => ({
+        privateKey: secretKey,
+        balance,
+      })),
+    },
     polygon: getChainConfig("polygon-mainnet"),
     mumbai: getChainConfig("polygon-mumbai"),
   },

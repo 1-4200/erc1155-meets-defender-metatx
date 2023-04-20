@@ -4,7 +4,7 @@ const { DefenderRelayProvider, DefenderRelaySigner } = require("defender-relay-c
 const ForwarderAbi = require("../artifacts_forge/MinimalForwarder.sol/MinimalForwarder.json").abi;
 const ForwarderAddress = require("../deploy.json").MinimalForwarder;
 
-const relay = async (forwarder: MinimalForwarder, request: any, signature: string) => {
+const _relay = async (forwarder: MinimalForwarder, request: any, signature: string) => {
   // Validate request on the forwarder contract
   const valid = await forwarder.verify(request, signature);
   if (!valid) throw new Error(`Invalid request`);
@@ -27,7 +27,7 @@ export const handler = async (event: any) => {
   const forwarder = new ethers.Contract(ForwarderAddress, ForwarderAbi, signer) as MinimalForwarder;
 
   // Relay transaction!
-  const tx = await relay(forwarder, request, signature);
+  const tx = await _relay(forwarder, request, signature);
   console.log(`Sent meta-tx: ${tx.hash}`);
   return { txHash: tx.hash };
 };

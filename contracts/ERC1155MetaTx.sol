@@ -2,14 +2,13 @@
 pragma solidity 0.8.18;
 
 import "@openzeppelin/contracts/token/ERC1155/ERC1155.sol";
-import "@openzeppelin/contracts/access/AccessControl.sol";
 import "@openzeppelin/contracts/metatx/ERC2771Context.sol";
 import "@openzeppelin/contracts/metatx/MinimalForwarder.sol";
 import "@openzeppelin/contracts/utils/cryptography/draft-EIP712.sol";
 
 error InvalidSignature();
 
-contract ERC1155MetaTx is ERC1155, AccessControl, ERC2771Context, EIP712 {
+contract ERC1155MetaTx is ERC1155, ERC2771Context, EIP712 {
     string private constant _DOMAIN_NAME = "ERC1155MetaTx";
     string private constant _DOMAIN_VERSION = "1.0.0";
 
@@ -22,7 +21,6 @@ contract ERC1155MetaTx is ERC1155, AccessControl, ERC2771Context, EIP712 {
         string memory _name,
         string memory _symbol
     ) ERC2771Context(address(forwarder)) ERC1155(_uri) EIP712(_DOMAIN_NAME, _DOMAIN_VERSION) {
-        _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
         name = _name;
         symbol = _symbol;
     }
@@ -68,7 +66,7 @@ contract ERC1155MetaTx is ERC1155, AccessControl, ERC2771Context, EIP712 {
         return ERC2771Context._msgData();
     }
 
-    function supportsInterface(bytes4 interfaceId) public view override(ERC1155, AccessControl) returns (bool) {
+    function supportsInterface(bytes4 interfaceId) public view override(ERC1155) returns (bool) {
         return super.supportsInterface(interfaceId);
     }
 }

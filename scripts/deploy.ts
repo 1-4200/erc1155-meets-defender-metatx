@@ -1,25 +1,55 @@
-import { ethers } from "hardhat";
+const { DefenderRelayProvider, DefenderRelaySigner } = require("defender-relay-client/lib/ethers");
+const { ethers } = require("hardhat");
+const { writeFileSync } = require("fs");
 
+const defaultBaseURI = "https://example.com/api/item/";
+const defaultContractName = "MyERC1155MetaTx";
+const defaultSymbol = "MCT";
 async function main() {
-  const currentTimestampInSeconds = Math.round(Date.now() / 1000);
-  const unlockTime = currentTimestampInSeconds + 60;
+  require("dotenv").config();
+  const credentials = {
+    apiKey: process.env.RELAYER_API_KEY,
+    apiSecret: process.env.RELAYER_API_SECRET,
+  };
+  const provider = new DefenderRelayProvider(credentials);
+  const relaySigner = new DefenderRelaySigner(credentials, provider, {
+    speed: "fast",
+  });
+  const network = await provider.getNetwork();
 
-  const lockedAmount = ethers.utils.parseEther("0.001");
-  const Lock = await ethers.getContractFactory("Lock");
-  const lock = await Lock.deploy(unlockTime, { value: lockedAmount });
+  const Forwarder = await ethers.getContractFactory("MinimalForwarder");
+  const forwarder = await Forwarder.connect(relaySigner).deploy();
+  await forwarder.deployed();
 
-  await lock.deployed();
+  const ERC1155MetaTx = await ethers.getContractFactory("ERC1155MetaTx");
+  const erc1155MetaTx = await ERC1155MetaTx.connect(relaySigner).deploy(
+    forwarder.address,
+    defaultBaseURI,
+    defaultContractName,
+    defaultSymbol,
+  );
+  await erc1155MetaTx.deployed();
+
+  writeFileSync(
+    `deploy.json`,
+    JSON.stringify(
+      {
+        MinimalForwarder: forwarder.address,
+        ERC1155MetaTx: erc1155MetaTx.address,
+      },
+      null,
+      2,
+    ),
+  );
 
   console.log(
-    `Lock with ${ethers.utils.formatEther(lockedAmount)}ETH and unlock timestamp ${unlockTime} deployed to ${
-      lock.address
-    }`,
+    `Deploy following contracts to ${network.name}\nMinimalForwarder: ${forwarder.address}\nERC1155MetaTx: ${erc1155MetaTx.address}`,
   );
 }
 
-// We recommend this pattern to be able to use async/await everywhere
-// and properly handle errors.
-main().catch(error => {
-  console.error(error);
-  process.exitCode = 1;
-});
+main()
+  .then(() => process.exit(0))
+  .catch(error => {
+    console.error(error);
+    process.exit(1);
+  });
