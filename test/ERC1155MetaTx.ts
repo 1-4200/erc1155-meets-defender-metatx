@@ -305,7 +305,8 @@ describe("ERC1155MetaTx", () => {
       const forwarderContract = forwarder.connect(relayer);
 
       await expect(await erc1155MetaTx.balanceOf(acc1.address, tokenId1)).to.equal(amount1);
-      await expect(await erc1155MetaTx.balanceOf(acc2.address, tokenId1)).to.equal(0);
+      await expect(await erc1155MetaTx.balanceOf(signer.address, tokenId1)).to.equal(0);
+      await expect(await erc1155MetaTx.balanceOf(relayer.address, tokenId1)).to.equal(0);
       // @ts-ignore
       const data = erc1155MetaTx.interface.encodeFunctionData("safeTransferFrom", [
         acc1.address,
@@ -319,14 +320,40 @@ describe("ERC1155MetaTx", () => {
         from: signer.address,
         data,
       });
-      const tx = await forwarderContract.execute(request, signature);
-      const rc = await tx.wait();
+      await expect(await forwarderContract.execute(request, signature)).to.not.emit(erc1155MetaTx, "TransferSingle");
+      // const tx = await forwarderContract.execute(request, signature);
+      // const rc = await tx.wait();
+      // console.log(rc.transactionHash);
 
       await expect(await erc1155MetaTx.balanceOf(acc1.address, tokenId1)).to.equal(amount1);
-      await expect(await erc1155MetaTx.balanceOf(acc2.address, tokenId1)).to.equal(0);
+      await expect(await erc1155MetaTx.balanceOf(signer.address, tokenId1)).to.equal(0);
+      await expect(await erc1155MetaTx.balanceOf(relayer.address, tokenId1)).to.equal(0);
       // await expect(forwarderContract.execute(request, signature)).to.be.revertedWith(
       //   "ERC1155: caller is not an owner nor approved",
       // );
+    });
+
+    it("Should fail to transfer a token via meta-tx if wrong singature passed", async () => {
+      const signer = acc2;
+      const relayer = acc3;
+      const forwarderContract = forwarder.connect(relayer);
+
+      // @ts-ignore
+      const data = erc1155MetaTx.interface.encodeFunctionData("safeTransferFrom", [
+        acc1.address,
+        acc2.address,
+        tokenId1,
+        amount1,
+        emptyBytes,
+      ]);
+      const { request, signature } = await signMetaTxRequest(acc2PrivateKey, forwarderContract, {
+        to: erc1155MetaTx.address,
+        from: acc1.address, // wrong signer
+        data,
+      });
+      await expect(forwarderContract.execute(request, signature)).to.be.revertedWith(
+        "MinimalForwarder: signature does not match request",
+      );
     });
   });
 });
