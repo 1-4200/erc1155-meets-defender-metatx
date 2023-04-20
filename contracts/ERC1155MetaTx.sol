@@ -5,10 +5,9 @@ import "@openzeppelin/contracts/token/ERC1155/ERC1155.sol";
 import "@openzeppelin/contracts/metatx/ERC2771Context.sol";
 import "@openzeppelin/contracts/metatx/MinimalForwarder.sol";
 import "@openzeppelin/contracts/utils/cryptography/draft-EIP712.sol";
+import "./IERC1155MetaTx.sol";
 
-error InvalidSignature();
-
-contract ERC1155MetaTx is ERC1155, ERC2771Context, EIP712 {
+contract ERC1155MetaTx is IERC1155MetaTx, ERC1155, ERC2771Context, EIP712 {
     string private constant _DOMAIN_NAME = "ERC1155MetaTx";
     string private constant _DOMAIN_VERSION = "1.0.0";
 
@@ -67,7 +66,7 @@ contract ERC1155MetaTx is ERC1155, ERC2771Context, EIP712 {
         return ERC2771Context._msgData();
     }
 
-    function supportsInterface(bytes4 interfaceId) public view override(ERC1155) returns (bool) {
+    function supportsInterface(bytes4 interfaceId) public view override(ERC1155, IERC165) returns (bool) {
         return super.supportsInterface(interfaceId);
     }
 }
