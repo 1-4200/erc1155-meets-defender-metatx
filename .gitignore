@@ -11,7 +11,10 @@ artifacts
 
 # Foundry
 cache_forge
-artifacts_forge
+artifacts_forge/*
+!artifacts_forge/MinimalForwarder.sol
+artifacts_forge/MinimalForwarder.sol/*
+!artifacts_forge/MinimalForwarder.sol/MinimalForwarder.json
 
 # deploy results
 deploy*.json
