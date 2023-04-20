@@ -29,6 +29,7 @@ describe("ERC1155MetaTx", () => {
     tokenId2 = 2,
     tokenId3 = 3;
   const amount1 = 1,
+    amount5 = 5,
     amount10 = 10;
 
   beforeEach(async () => {
@@ -183,6 +184,149 @@ describe("ERC1155MetaTx", () => {
       await expect(forwarderContract.execute(request, signature)).to.be.revertedWith(
         "MinimalForwarder: signature does not match request",
       );
+    });
+  });
+
+  describe("Transfer", () => {
+    let sig: string;
+    beforeEach(async () => {
+      sig = await createERC1155MetaTxSignature(
+        acc1,
+        erc1155MetaTx.address,
+        tokenId1,
+        amount1,
+        domainName,
+        domainVersion,
+        heChainId,
+      );
+      const sig2 = await createERC1155MetaTxSignature(
+        acc1,
+        erc1155MetaTx.address,
+        tokenId2,
+        amount1,
+        domainName,
+        domainVersion,
+        heChainId,
+      );
+      const sig3 = await createERC1155MetaTxSignature(
+        acc1,
+        erc1155MetaTx.address,
+        tokenId3,
+        amount10,
+        domainName,
+        domainVersion,
+        heChainId,
+      );
+      await erc1155MetaTx.connect(acc1).redeem(acc1.address, tokenId1, amount1, emptyBytes, sig);
+      await erc1155MetaTx.connect(acc1).redeem(acc1.address, tokenId2, amount1, emptyBytes, sig2);
+      await erc1155MetaTx.connect(acc1).redeem(acc1.address, tokenId3, amount10, emptyBytes, sig3);
+    });
+
+    it("Should transfer a token directly", async () => {
+      // TokenId1
+      await expect(await erc1155MetaTx.balanceOf(acc1.address, tokenId1)).to.equal(amount1);
+      await expect(await erc1155MetaTx.balanceOf(acc2.address, tokenId1)).to.equal(0);
+
+      await expect(
+        await erc1155MetaTx.connect(acc1).safeTransferFrom(acc1.address, acc2.address, tokenId1, amount1, emptyBytes),
+      )
+        .to.emit(erc1155MetaTx, "TransferSingle")
+        .withArgs(acc1.address, acc1.address, acc2.address, tokenId1, amount1);
+      await expect(await erc1155MetaTx.balanceOf(acc2.address, tokenId1)).to.equal(amount1);
+      await expect(await erc1155MetaTx.balanceOf(acc1.address, tokenId1)).to.equal(0);
+
+      // TokenId3
+      await expect(await erc1155MetaTx.balanceOf(acc1.address, tokenId3)).to.equal(amount10);
+      await expect(await erc1155MetaTx.balanceOf(acc2.address, tokenId3)).to.equal(0);
+
+      await expect(
+        await erc1155MetaTx.connect(acc1).safeTransferFrom(acc1.address, acc2.address, tokenId3, amount5, emptyBytes),
+      )
+        .to.emit(erc1155MetaTx, "TransferSingle")
+        .withArgs(acc1.address, acc1.address, acc2.address, tokenId3, amount5);
+      await expect(await erc1155MetaTx.balanceOf(acc2.address, tokenId3)).to.equal(amount5);
+      await expect(await erc1155MetaTx.balanceOf(acc1.address, tokenId3)).to.equal(amount5);
+    });
+
+    it("Should transfer a token via meta-tx", async () => {
+      const signer = acc1;
+      const relayer = acc3;
+      const forwarderContract = forwarder.connect(relayer);
+      await expect(await erc1155MetaTx.balanceOf(signer.address, tokenId1)).to.equal(amount1);
+      await expect(await erc1155MetaTx.balanceOf(acc2.address, tokenId1)).to.equal(0);
+
+      // @ts-ignore
+      const data = erc1155MetaTx.interface.encodeFunctionData("safeTransferFrom", [
+        signer.address,
+        acc2.address,
+        tokenId1,
+        amount1,
+        emptyBytes,
+      ]);
+      const { request, signature } = await signMetaTxRequest(acc1PrivateKey, forwarderContract, {
+        to: erc1155MetaTx.address,
+        from: signer.address,
+        data,
+      });
+      await forwarderContract.execute(request, signature);
+      await expect(await erc1155MetaTx.balanceOf(signer.address, tokenId1)).to.equal(0);
+      await expect(await erc1155MetaTx.balanceOf(acc2.address, tokenId1)).to.equal(amount1);
+    });
+
+    it("Should transfer a token with amount via meta-tx", async () => {
+      // TokenId1
+      const signer = acc1;
+      const relayer = acc3;
+      const forwarderContract = forwarder.connect(relayer);
+      await expect(await erc1155MetaTx.balanceOf(signer.address, tokenId3)).to.equal(amount10);
+      await expect(await erc1155MetaTx.balanceOf(acc2.address, tokenId3)).to.equal(0);
+
+      // @ts-ignore
+      const data = erc1155MetaTx.interface.encodeFunctionData("safeTransferFrom", [
+        signer.address,
+        acc2.address,
+        tokenId3,
+        amount5,
+        emptyBytes,
+      ]);
+      const { request, signature } = await signMetaTxRequest(acc1PrivateKey, forwarderContract, {
+        to: erc1155MetaTx.address,
+        from: signer.address,
+        data,
+      });
+      await forwarderContract.execute(request, signature);
+      await expect(await erc1155MetaTx.balanceOf(signer.address, tokenId3)).to.equal(amount5);
+      await expect(await erc1155MetaTx.balanceOf(acc2.address, tokenId3)).to.equal(amount5);
+    });
+
+    it("Should fail to transfer a token via meta-tx if operator is not owner", async () => {
+      const signer = acc2;
+      const relayer = acc3;
+      const forwarderContract = forwarder.connect(relayer);
+
+      await expect(await erc1155MetaTx.balanceOf(acc1.address, tokenId1)).to.equal(amount1);
+      await expect(await erc1155MetaTx.balanceOf(acc2.address, tokenId1)).to.equal(0);
+      // @ts-ignore
+      const data = erc1155MetaTx.interface.encodeFunctionData("safeTransferFrom", [
+        acc1.address,
+        acc2.address,
+        tokenId1,
+        amount1,
+        emptyBytes,
+      ]);
+      const { request, signature } = await signMetaTxRequest(acc2PrivateKey, forwarderContract, {
+        to: erc1155MetaTx.address,
+        from: signer.address,
+        data,
+      });
+      const tx = await forwarderContract.execute(request, signature);
+      const rc = await tx.wait();
+
+      await expect(await erc1155MetaTx.balanceOf(acc1.address, tokenId1)).to.equal(amount1);
+      await expect(await erc1155MetaTx.balanceOf(acc2.address, tokenId1)).to.equal(0);
+      // await expect(forwarderContract.execute(request, signature)).to.be.revertedWith(
+      //   "ERC1155: caller is not an owner nor approved",
+      // );
     });
   });
 });
