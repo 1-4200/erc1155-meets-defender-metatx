@@ -4,10 +4,11 @@ pragma solidity 0.8.18;
 import "@openzeppelin/contracts/token/ERC1155/ERC1155.sol";
 import "@openzeppelin/contracts/metatx/ERC2771Context.sol";
 import "@openzeppelin/contracts/metatx/MinimalForwarder.sol";
+import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/utils/cryptography/draft-EIP712.sol";
 import "./IERC1155MetaTx.sol";
 
-contract ERC1155MetaTx is IERC1155MetaTx, ERC1155, ERC2771Context, EIP712 {
+contract ERC1155MetaTx is IERC1155MetaTx, ERC1155, ERC2771Context, ReentrancyGuard, EIP712 {
     string private constant _DOMAIN_NAME = "ERC1155MetaTx";
     string private constant _DOMAIN_VERSION = "1.0.0";
 
@@ -30,7 +31,7 @@ contract ERC1155MetaTx is IERC1155MetaTx, ERC1155, ERC2771Context, EIP712 {
         uint256 _amount,
         bytes memory _data,
         bytes calldata _signature
-    ) external payable {
+    ) external payable nonReentrant {
         _redeem(_account, _tokenId, _amount, _data, _signature);
     }
 
@@ -38,12 +39,12 @@ contract ERC1155MetaTx is IERC1155MetaTx, ERC1155, ERC2771Context, EIP712 {
     function _redeem(
         address _account,
         uint256 _tokenId,
-        uint256 _redeemAmount,
+        uint256 _amount,
         bytes memory _data,
         bytes calldata _signature
     ) private {
-        if (!_verify(_hash(_tokenId, _redeemAmount), _signature)) revert InvalidSignature();
-        _mint(_account, _tokenId, _redeemAmount, _data);
+        if (!_verify(_hash(_tokenId, _amount), _signature)) revert InvalidSignature();
+        _mint(_account, _tokenId, _amount, _data);
     }
 
     function _hash(uint256 _tokenId, uint256 _amount) internal view returns (bytes32) {
